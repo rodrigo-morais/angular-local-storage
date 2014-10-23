@@ -111,13 +111,22 @@ angularLocalStorage.provider('localStorageService', function() {
     // Directly adds a value to local storage
     // If local storage is not available in the browser use cookies
     // Example use: localStorageService.add('library','angular');
-    var addToLocalStorage = function (key, value) {
+    var addToLocalStorage = function (key, value, compareDateExpiration) {
+      var lsValue = {};
       // Let's convert undefined values to null to get the value consistent
       if (isUndefined(value)) {
-        value = null;
+          value = null;
       } else if (isObject(value) || isArray(value) || isNumber(+value || value)) {
-        value = toJson(value);
+          
+          value = toJson(value);
+      } else if(isBoolean(value)){
+          value = value.toString();
       }
+      
+      lsValue = {
+          "date": compareDateExpiration || Date.now(),
+          "data": value
+      };
 
       // If this browser does not support local storage use cookies
       if (!browserSupportsLocalStorage || self.storageType === 'cookie') {
@@ -133,11 +142,15 @@ angularLocalStorage.provider('localStorageService', function() {
 
       try {
         if (isObject(value) || isArray(value)) {
-          value = toJson(value);
+            value = toJson(value);
+            lsValue = {
+                date: compareDateExpiration || Date.now(),
+                data: value
+            };
         }
-        if (webStorage) {webStorage.setItem(deriveQualifiedKey(key), value)};
+        if (webStorage) { webStorage.setItem(deriveQualifiedKey(key), JSON.stringify(lsValue)) };
         if (notify.setItem) {
-          $rootScope.$broadcast('LocalStorageModule.notification.setitem', {key: key, newvalue: value, storageType: self.storageType});
+            $rootScope.$broadcast('LocalStorageModule.notification.setitem', { key: key, newvalue: JSON.stringify(lsValue), storageType: self.storageType });
         }
       } catch (e) {
         $rootScope.$broadcast('LocalStorageModule.notification.error', e.message);
@@ -148,7 +161,9 @@ angularLocalStorage.provider('localStorageService', function() {
 
     // Directly get a value from local storage
     // Example use: localStorageService.get('library'); // returns 'angular'
-    var getFromLocalStorage = function (key) {
+    var getFromLocalStorage = function (key, expiration) {
+
+      var data, date, saved;
 
       if (!browserSupportsLocalStorage || self.storageType === 'cookie') {
         if (!browserSupportsLocalStorage) {
@@ -157,7 +172,7 @@ angularLocalStorage.provider('localStorageService', function() {
 
         return getFromCookies(key);
       }
-
+      
       var item = webStorage ? webStorage.getItem(deriveQualifiedKey(key)) : null;
       // angular.toJson will convert null to 'null', so a proper conversion is needed
       // FIXME not a perfect solution, since a valid 'null' string can't be stored
@@ -165,11 +180,22 @@ angularLocalStorage.provider('localStorageService', function() {
         return null;
       }
 
-      if (item.charAt(0) === "{" || item.charAt(0) === "[" || isStringNumber(item)) {
-        return fromJson(item);
+      item = JSON.parse(item);
+      data = item.data;
+      saved = item.date;
+
+      if (expiration) {
+          var dateExpiration = new Date(saved).getTime() + expiration;
+          if (dateExpiration < Date.now()) {
+              return null;
+          }
       }
 
-      return item;
+      if (data.charAt(0) === "{" || data.charAt(0) === "[" || isStringNumber(data)) {
+        return fromJson(data);
+      }
+
+      return data;
     };
 
     // Remove an item from local storage
@@ -380,7 +406,7 @@ angularLocalStorage.provider('localStorageService', function() {
       $parse(key).assign(scope, value);
 
       return scope.$watch(key, function(newVal) {
-        addToLocalStorage(lsKey, newVal);
+          addToLocalStorage(lsKey, newVal);
       }, isObject(scope[key]));
     };
 

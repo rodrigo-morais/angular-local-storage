@@ -1,7 +1,7 @@
 'use strict';
 
 describe('localStorageService', function() {
-  var elmSpy;
+  var elmSpy, now = Date.now();
 
   //Actions
   function getItem(key) {
@@ -11,10 +11,10 @@ describe('localStorageService', function() {
     };
   }
 
-  function addItem(key, value) {
-    return function($window, localStorageService) {
+  function addItem(key, value, date) {
+      return function ($window, localStorageService) {
       elmSpy = spyOn($window.localStorage, 'setItem').andCallThrough();
-      localStorageService.set(key, value);
+      localStorageService.set(key, value, date);
     };
   }
 
@@ -32,9 +32,13 @@ describe('localStorageService', function() {
     };
   }
 
-  function expectAdding(key, value) {
-    return function() {
-      expect(elmSpy).toHaveBeenCalledWith(key, value);
+  function expectAdding(key, value, date) {
+      return function () {
+          var lsValue = {
+              date: date || Date.now(),
+              data: value
+          };
+        expect(elmSpy).toHaveBeenCalledWith(key, JSON.stringify(lsValue));
     };
   }
 
@@ -44,9 +48,9 @@ describe('localStorageService', function() {
     };
   }
 
-  function expectMatching(key, expected) {
+  function expectMatching(key, expected, expiration) {
     return function(localStorageService) {
-      expect(localStorageService.get(key)).toEqual(expected);
+      expect(localStorageService.get(key, expiration)).toEqual(expected);
     };
   }
 
@@ -127,20 +131,20 @@ describe('localStorageService', function() {
   ));
 
   it('should add key to localeStorage with initial prefix(ls)', inject(
-    addItem('foo', 'bar'),
-    expectAdding('ls.foo', 'bar')
+    addItem('foo', 'bar', now),
+    expectAdding('ls.foo', 'bar', now)
   ));
 
   it('should add key to localeStorage null if value not provided', inject(
-    addItem('foo'),
-    expectAdding('ls.foo', null)
+    addItem('foo', null, now),
+    expectAdding('ls.foo', null, now)
   ));
 
   it('should support to set custom prefix', function() {
     module(setPrefix('myApp'));
     inject(
-      addItem('foo', 'bar'),
-      expectAdding('myApp.foo', 'bar')
+      addItem('foo', 'bar', now),
+      expectAdding('myApp.foo', 'bar', now)
     );
   });
 
@@ -154,8 +158,8 @@ describe('localStorageService', function() {
   it('should be able to set and get arrays', function() {
     var values = ['foo', 'bar', 'baz'];
     inject(
-      addItem('key', values),
-      expectAdding('ls.key', angular.toJson(values)),
+      addItem('key', values, now),
+      expectAdding('ls.key', angular.toJson(values), now),
       expectMatching('key', values)
     );
   });
@@ -163,40 +167,40 @@ describe('localStorageService', function() {
   it('should be able to set and get objects', function() {
     var values = { 0: 'foo', 1: 'bar', 2: 'baz' };
     inject(
-      addItem('key', values),
-      expectAdding('ls.key', angular.toJson(values)),
+      addItem('key', values, now),
+      expectAdding('ls.key', angular.toJson(values), now),
       expectMatching('key', values)
     );
   });
 
   it('should be able to set and get integers', function() {
     inject(
-      addItem('key', 777),
-      expectAdding('ls.key', angular.toJson(777)),
+      addItem('key', 777, now),
+      expectAdding('ls.key', angular.toJson(777), now),
       expectMatching('key', 777)
     );
   });
 
   it('should be able to set and get float numbers', function() {
     inject(
-      addItem('key', 123.123),
-      expectAdding('ls.key', angular.toJson(123.123)),
+      addItem('key', 123.123, now),
+      expectAdding('ls.key', angular.toJson(123.123), now),
       expectMatching('key', 123.123)
     );
   });
 
   it('should be able to set and get strings', function() {
     inject(
-      addItem('key', 'string'),
-      expectAdding('ls.key', 'string'),
+      addItem('key', 'string', now),
+      expectAdding('ls.key', 'string', now),
       expectMatching('key', 'string')
     );
   });
 
   it('should be able to set and get numbers as a strings', function() {
     inject(
-      addItem('key', '777'),
-      expectAdding('ls.key', angular.toJson('777')),
+      addItem('key', '777', now),
+      expectAdding('ls.key', angular.toJson('777'), now),
       expectMatching('key', '777')
     )
   });
@@ -206,6 +210,44 @@ describe('localStorageService', function() {
     expectGetting('ls.key')
   ));
 
+/* ******************* expiration *************** */
+  it('should be able to set and get values within of expiration time', function () {
+      var aHourAgo = Date.now() + (-3600000),
+          twoHours = 7200000;
+      inject(
+        addItem('key', '777', aHourAgo),
+        expectMatching('key', '777', twoHours)
+      )
+  });
+
+  it('should be able to set values but should get  null because out of expiration time', function () {
+      var aHourAgo = Date.now() + (-3600000),
+          middleHour = 1800000;
+      inject(
+        addItem('key', '777', aHourAgo),
+        expectMatching('key', null, middleHour)
+      )
+  });
+
+  it('should be able to set and get values within of expiration time with more 24 hours', function () {
+      var aHourAgo = Date.now() + (-3600000),
+          twentySixHours = 93600000;
+      inject(
+        addItem('key', '777', aHourAgo),
+        expectMatching('key', '777', twentySixHours)
+      )
+  });
+
+  it('should be able to set values but should get  null because out of expiration time, when expiration time is negative', function () {
+      var aHourAgo = Date.now() + (-3600000),
+          twentySixHoursNegative = -93600000;
+      inject(
+        addItem('key', '777', aHourAgo),
+        expectMatching('key', null, twentySixHoursNegative)
+      )
+  });
+/* ******************* expiration *************** */
+
   it('should be able to remove items', inject(
     removeItem('lorem.ipsum'),
     expectRemoving('ls.lorem.ipsum')
@@ -214,10 +256,10 @@ describe('localStorageService', function() {
   it('should be able only to remove owned keys', inject(function($window, localStorageService) {
     localStorageService.set('appKey', 'appValue');
     $window.localStorage.setItem('appKey', 'appValue');
-
+      
     expect($window.localStorage.getItem('ls.appKey')).toBeDefined();
     expect($window.localStorage.getItem('appKey')).toBeDefined();
-
+    
     localStorageService.remove('appKey');
 
     expect($window.localStorage.getItem('ls.appKey')).not.toBeDefined();
@@ -316,12 +358,12 @@ describe('localStorageService', function() {
     var mocks = [{}, [], 'string', 90, false];
     var expectation = [true, true, false, false, false];
     var results = [];
-
-    spyOn($rootScope, '$watch').andCallFake(function(key, func, eq) {
-      results.push(eq);
+    
+    spyOn($rootScope, '$watch').andCallFake(function (key, func, eq) {
+        results.push(eq);
     });
 
-    mocks.forEach(function(elm, i) {
+    mocks.forEach(function (elm, i) {  
       localStorageService.set('mock' + i, elm);
       localStorageService.bind($rootScope, 'mock' + i);
     });
@@ -378,17 +420,23 @@ describe('localStorageService', function() {
 
     it('should be able to change storage to SessionStorage', function() {
       module(setStorage('sessionStorage'));
-
+      
       inject(function($window, localStorageService) {
         var setSpy = spyOn($window.sessionStorage, 'setItem'),
           getSpy = spyOn($window.sessionStorage, 'getItem'),
-          removeSpy = spyOn($window.sessionStorage, 'removeItem');
+          removeSpy = spyOn($window.sessionStorage, 'removeItem'),
+          lsValue;
 
-        localStorageService.set('foo', 'bar');
+        localStorageService.set('foo', 'bar', now);
         localStorageService.get('foo');
         localStorageService.remove('foo');
 
-        expect(setSpy).toHaveBeenCalledWith('ls.foo', 'bar');
+        lsValue = {
+            date: now,
+            data: 'bar'
+        };
+
+        expect(setSpy).toHaveBeenCalledWith('ls.foo', JSON.stringify(lsValue));
         expect(getSpy).toHaveBeenCalledWith('ls.foo');
         expect(removeSpy).toHaveBeenCalledWith('ls.foo');
 

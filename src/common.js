@@ -6,6 +6,7 @@ var isDefined = angular.isDefined,
   isNumber = angular.isNumber,
   isObject = angular.isObject,
   isArray = angular.isArray,
+  isBoolean = isBoolean,
   extend = angular.extend,
   toJson = angular.toJson,
   fromJson = angular.fromJson;
@@ -15,4 +16,9 @@ var isDefined = angular.isDefined,
 // e.g '1' => true, "'1'" => true
 function isStringNumber(num) {
   return  /^-?\d+\.?\d*$/.test(num.replace(/["']/g, ''));
+}
+
+
+function isBoolean(value) {
+    return typeof value === 'boolean';
 }

@@ -11,8 +11,14 @@ function localStorageMock() {
       writable: true
     },
     getItem: {
-      value: function(key) {
-        return storage[key];
+      value: function (key) {
+          var data = storage[key];
+
+          if (data) {
+              data = storage[key].data || storage[key];
+          }
+
+        return data;
       },
       enumerable: false,
       writable: true
