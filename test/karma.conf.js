@@ -29,7 +29,7 @@ module.exports = function(config) {
       bower + 'angular/angular.js',
       bower + 'angular-mocks/angular-mocks.js',
       'src/*.js',
-      'test/mock/*.js',
+      'test/mock/**/*.js',
       'test/spec/**/*.js'
     ],
 

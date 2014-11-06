@@ -12,7 +12,7 @@ describe('localStorageService', function() {
   }
 
   function addItem(key, value, date) {
-      return function ($window, localStorageService) {
+    return function ($window, localStorageService) {
       elmSpy = spyOn($window.localStorage, 'setItem').andCallThrough();
       localStorageService.set(key, value, date);
     };
@@ -33,12 +33,12 @@ describe('localStorageService', function() {
   }
 
   function expectAdding(key, value, date) {
-      return function () {
-          var lsValue = {
-              date: date || Date.now(),
-              data: value
-          };
-        expect(elmSpy).toHaveBeenCalledWith(key, JSON.stringify(lsValue));
+    return function () {
+      var lsValue = {
+        date: date || Date.now(),
+        data: value
+      };
+      expect(elmSpy).toHaveBeenCalledWith(key, JSON.stringify(lsValue));
     };
   }
 
@@ -48,9 +48,10 @@ describe('localStorageService', function() {
     };
   }
 
-  function expectMatching(key, expected, expiration) {
-    return function(localStorageService) {
-      expect(localStorageService.get(key, expiration)).toEqual(expected);
+  function expectMatching(key, expected, expiration, remove) {
+    return function (localStorageService) {
+      remove = remove === undefined ? false : remove;
+      expect(localStorageService.get(key, expiration, remove)).toEqual(expected);
     };
   }
 
@@ -202,7 +203,7 @@ describe('localStorageService', function() {
       addItem('key', '777', now),
       expectAdding('ls.key', angular.toJson('777'), now),
       expectMatching('key', '777')
-    )
+    );
   });
 
   it('should be able to get items', inject(
@@ -212,40 +213,71 @@ describe('localStorageService', function() {
 
 /* ******************* expiration *************** */
   it('should be able to set and get values within of expiration time', function () {
-      var aHourAgo = Date.now() + (-3600000),
-          twoHours = 7200000;
-      inject(
-        addItem('key', '777', aHourAgo),
-        expectMatching('key', '777', twoHours)
-      )
+    var aHourAgo = Date.now() + (-3600000),
+        twoHours = 7200000;
+    inject(
+      addItem('key', '777', aHourAgo),
+      expectMatching('key', '777', twoHours)
+    );
   });
 
   it('should be able to set values but should get  null because out of expiration time', function () {
-      var aHourAgo = Date.now() + (-3600000),
-          middleHour = 1800000;
-      inject(
-        addItem('key', '777', aHourAgo),
-        expectMatching('key', null, middleHour)
-      )
+    var aHourAgo = Date.now() + (-3600000),
+        middleHour = 1800000;
+    inject(
+      addItem('key', '777', aHourAgo),
+      expectMatching('key', null, middleHour)
+    );
   });
 
   it('should be able to set and get values within of expiration time with more 24 hours', function () {
-      var aHourAgo = Date.now() + (-3600000),
-          twentySixHours = 93600000;
-      inject(
-        addItem('key', '777', aHourAgo),
-        expectMatching('key', '777', twentySixHours)
-      )
+    var aHourAgo = Date.now() + (-3600000),
+        twentySixHours = 93600000;
+    inject(
+      addItem('key', '777', aHourAgo),
+      expectMatching('key', '777', twentySixHours)
+    );
   });
 
-  it('should be able to set values but should get  null because out of expiration time, when expiration time is negative', function () {
+  it('should be able to set values but should get null because out of expiration time, when expiration time is negative', function () {
+    var aHourAgo = Date.now() + (-3600000),
+        twentySixHoursNegative = -93600000;
+    inject(
+      addItem('key', '777', aHourAgo),
+      expectMatching('key', null, twentySixHoursNegative)
+    );
+  });
+
+  it('should be able to set values but should get null in second validation because out of expiration time on first validation and remove key flag was on', function () {
       var aHourAgo = Date.now() + (-3600000),
           twentySixHoursNegative = -93600000;
       inject(
         addItem('key', '777', aHourAgo),
-        expectMatching('key', null, twentySixHoursNegative)
-      )
+        expectMatching('key', null, twentySixHoursNegative, true),
+        expectMatching('key', null)
+      );
   });
+
+  it('should be able to set and get values in first and second validation, because first validation within of expiration time with more 24 hours', function () {
+      var aHourAgo = Date.now() + (-3600000),
+          twentySixHours = 93600000;
+      inject(
+        addItem('key', '777', aHourAgo),
+        expectMatching('key', '777', twentySixHours, true),
+        expectMatching('key', '777')
+      );
+  });
+
+  it('should be able to set values but should get null in first validation and get the value in second validation, because out of expiration time on first validation but remove key flag was off', function () {
+      var aHourAgo = Date.now() + (-3600000),
+          twentySixHoursNegative = -93600000;
+      inject(
+        addItem('key', '777', aHourAgo),
+        expectMatching('key', null, twentySixHoursNegative),
+        expectMatching('key', '777')
+      );
+  });
+
 /* ******************* expiration *************** */
 
   it('should be able to remove items', inject(
@@ -360,10 +392,10 @@ describe('localStorageService', function() {
     var results = [];
     
     spyOn($rootScope, '$watch').andCallFake(function (key, func, eq) {
-        results.push(eq);
+      results.push(eq);
     });
 
-    mocks.forEach(function (elm, i) {  
+    mocks.forEach(function (elm, i) {
       localStorageService.set('mock' + i, elm);
       localStorageService.bind($rootScope, 'mock' + i);
     });
@@ -380,7 +412,8 @@ describe('localStorageService', function() {
       }
       expect(localStorageService.length()).toEqual(10);
       expect($window.localStorage.length).toEqual(20);
-  }));
+    }
+  ));
 
   it('should be able to clear all owned keys from storage',inject(function($window, localStorageService) {
     for(var i = 0; i < 10; i++) {
@@ -423,17 +456,17 @@ describe('localStorageService', function() {
       
       inject(function($window, localStorageService) {
         var setSpy = spyOn($window.sessionStorage, 'setItem'),
-          getSpy = spyOn($window.sessionStorage, 'getItem'),
-          removeSpy = spyOn($window.sessionStorage, 'removeItem'),
-          lsValue;
+            getSpy = spyOn($window.sessionStorage, 'getItem'),
+            removeSpy = spyOn($window.sessionStorage, 'removeItem'),
+            lsValue;
 
         localStorageService.set('foo', 'bar', now);
         localStorageService.get('foo');
         localStorageService.remove('foo');
 
         lsValue = {
-            date: now,
-            data: 'bar'
+          date: now,
+          data: 'bar'
         };
 
         expect(setSpy).toHaveBeenCalledWith('ls.foo', JSON.stringify(lsValue));
@@ -521,7 +554,7 @@ describe('localStorageService', function() {
 
     it('should be able to clear all owned keys from cookie', inject(function(localStorageService, $document) {
       localStorageService.set('ownKey1', 1);
-      $document.cookie = "username=John Doe";
+      $document.cookie = 'username=John Doe';
       localStorageService.clearAll();
       expect(localStorageService.get('ownKey1')).toEqual(null);
       expect($document.cookie).not.toEqual('');

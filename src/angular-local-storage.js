@@ -161,7 +161,9 @@ angularLocalStorage.provider('localStorageService', function() {
 
     // Directly get a value from local storage
     // Example use: localStorageService.get('library'); // returns 'angular'
-    var getFromLocalStorage = function (key, expiration) {
+    var getFromLocalStorage = function (key, expiration, remove) {
+
+      remove = remove === undefined ? false : remove;
 
       var data, date, saved;
 
@@ -187,6 +189,9 @@ angularLocalStorage.provider('localStorageService', function() {
       if (expiration) {
           var dateExpiration = new Date(saved).getTime() + expiration;
           if (dateExpiration < Date.now()) {
+              if (remove) {
+                  webStorage.removeItem(deriveQualifiedKey(key))
+              }
               return null;
           }
       }
